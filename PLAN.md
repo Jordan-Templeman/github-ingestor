@@ -2,11 +2,12 @@
 
 ## Current State
 
-Foundation is in place:
-- Rails 7.1 API app, PostgreSQL, Docker Compose
-- `GithubEventParser` service + passing spec
-- `DESIGN.md`, `Dockerfile`, Gemfile with httparty / jsonapi-serializer / rspec stack
-- Sidekiq/Redis present but unused — removed before first commit
+Foundation committed — 4 commits on `master`:
+
+- `chore`: Rails 7.1 API app, PostgreSQL, Docker Compose scaffolded from scratch
+- `feat`: `GithubEventParser` service + passing spec
+- `docs`: `DESIGN.md`, `README.md`, `PLAN.md` written
+- `docs`: Approach section added, design brief cleaned up
 
 ---
 
@@ -20,34 +21,12 @@ Every phase follows **red → green**:
 
 ---
 
-## Phase 0 — Cleanup & Documentation (pre-first-commit)
+## ✅ Phase 0 — Cleanup & Documentation (complete)
 
-**Gemfile:**
-- Remove commented `sidekiq` and `redis` gems
-
-**docker-compose.yml:**
-- Remove `redis` and `sidekiq` services
-- Remove `REDIS_URL` env vars from all remaining services
-- Final services: `db`, `app`, `ingest`, `test`
-
-**DESIGN.md** — rewrite to match actual architecture:
-- No Sidekiq/Redis; enrichment is inline
-- Rate limit strategy via response headers
-- Idempotency via `find_or_create_by` + skip-if-exists
-- Data model summary (actors, repositories, push_events)
-- What was intentionally not built
-
-**README.md** — full rewrite:
-- Project overview
-- `docker compose up --build` — start the system
-- `docker compose run --rm ingest` — run ingestion
-- `docker compose run --rm test` — run tests
-- "How to verify it's working" section:
-  - Expected log lines
-  - Which DB tables to query and what to look for
-  - How long before results appear
-
-Then `/smart-commit` the cleaned-up foundation.
+- Cleaned `Gemfile` and `docker-compose.yml` — final services: `db`, `app`, `ingest`, `test`
+- Rewrote `DESIGN.md` with approach section, accurate tradeoffs, no false scope-cut framing
+- Rewrote `README.md` with all required reviewer commands and "how to verify" section
+- Committed foundation across 4 logical commits
 
 ---
 
