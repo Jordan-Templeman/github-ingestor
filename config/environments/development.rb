@@ -68,6 +68,10 @@ Rails.application.configure do
   # Raise error when a before_action's only/except options reference missing actions
   config.action_controller.raise_on_missing_callback_actions = true
 
+  # Allow Docker service hostnames for inter-container requests
+  config.hosts << "app"
+  config.hosts << "localhost"
+
   # Log to stdout so docker compose logs shows application output
   config.logger = ActiveSupport::Logger.new($stdout)
   config.log_level = :info
