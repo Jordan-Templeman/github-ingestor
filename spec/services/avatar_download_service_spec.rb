@@ -116,6 +116,30 @@ RSpec.describe AvatarDownloadService do
       end
     end
 
+    context 'when avatar_url is not a GitHub CDN URL' do
+      let(:actor) { create(:actor, avatar_url: 'http://evil.example.com/ssrf') }
+
+      it 'does not make an HTTP request' do
+        described_class.download(actor)
+
+        expect(a_request(:get, actor.avatar_url)).not_to have_been_made
+      end
+
+      it 'does not attach avatar' do
+        described_class.download(actor)
+
+        expect(actor.avatar).not_to be_attached
+      end
+
+      it 'logs the rejection' do
+        allow(Rails.logger).to receive(:error)
+
+        described_class.download(actor)
+
+        expect(Rails.logger).to have_received(:error).with(/Blocked non-GitHub avatar URL/)
+      end
+    end
+
     context 'when response body exceeds size limit' do
       before do
         large_body = 'x' * (described_class::MAX_AVATAR_SIZE + 1)

@@ -1,6 +1,7 @@
 class AvatarDownloadService
   MAX_AVATAR_SIZE = 1_048_576
   ALLOWED_CONTENT_TYPES = %w[image/png image/jpeg image/gif image/webp].freeze
+  ALLOWED_AVATAR_HOST = 'avatars.githubusercontent.com'.freeze
   DOWNLOAD_TIMEOUT = 5
 
   class << self
@@ -12,6 +13,8 @@ class AvatarDownloadService
         return
       end
 
+      return reject_url(actor) unless allowed_avatar_url?(actor.avatar_url)
+
       response = fetch_avatar(actor)
       return unless response
 
@@ -21,6 +24,19 @@ class AvatarDownloadService
     end
 
     private
+
+    def allowed_avatar_url?(url)
+      uri = URI.parse(url)
+      uri.scheme == 'https' && uri.host == ALLOWED_AVATAR_HOST
+    rescue URI::InvalidURIError
+      false
+    end
+
+    def reject_url(actor)
+      Rails.logger.error(
+        "[AvatarDownloadService] Blocked non-GitHub avatar URL for #{actor.login}: #{actor.avatar_url}"
+      )
+    end
 
     def fetch_avatar(actor)
       response = HTTParty.get(actor.avatar_url, timeout: DOWNLOAD_TIMEOUT)
