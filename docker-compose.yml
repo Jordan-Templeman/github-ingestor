@@ -27,6 +27,7 @@ services:
 
   app:
     build: .
+    user: root
     command: bundle exec rails server -b 0.0.0.0 -p 3000
     volumes:
       - .:/rails
@@ -45,6 +46,7 @@ services:
 
   sidekiq:
     build: .
+    user: root
     command: bundle exec sidekiq
     volumes:
       - .:/rails
@@ -61,6 +63,7 @@ services:
 
   ingest:
     build: .
+    user: root
     command: bundle exec rails runner "IngestionService.run"
     profiles:
       - tools

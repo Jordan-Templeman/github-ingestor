@@ -8,6 +8,6 @@ rm -f /rails/tmp/pids/server.pid
 
 # Prepare the database (create + migrate if needed)
 # Fallback to db:migrate if db:prepare fails (e.g. race with another container)
-./bin/rails db:prepare 2>/dev/null || ./bin/rails db:migrate
+./bin/rails db:prepare || ./bin/rails db:migrate
 
 exec "${@}"

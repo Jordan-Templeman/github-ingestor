@@ -30,8 +30,16 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl postgresql-client && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
+# Create non-root user for running the application
+RUN groupadd --system rails && useradd --system -g rails rails
+
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
+
+# Ensure the rails user owns the app and bundle directories
+RUN chown -R rails:rails /rails /usr/local/bundle
+
+USER rails
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
