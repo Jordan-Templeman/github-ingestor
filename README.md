@@ -15,30 +15,51 @@ No other local dependencies required.
 
 ---
 
+## Make Commands
+
+A `Makefile` is included for convenience:
+
+| Command | Description |
+|---------|-------------|
+| `make up` | Build and start all services |
+| `make down` | Stop and remove containers |
+| `make migrate` | Run pending migrations |
+| `make ingest` | Run ingestion |
+| `make test` | Run the full test suite |
+| `make logs` | Tail all service logs |
+| `make console` | Open a Rails console |
+
+---
+
 ## How to Start the System
 
 ```bash
-docker compose up --build
+make up
+# or: docker compose up --build
 ```
 
-This starts the Rails app on `http://localhost:3000` and PostgreSQL. The database is created and migrated automatically on boot.
+This starts the Rails API on `http://localhost:3000`, PostgreSQL, Redis, Sidekiq (continuous ingestion), and the React frontend on `http://localhost:5173`. The database is created and migrated automatically on boot.
 
 ---
 
 ## How to Run Ingestion
 
 ```bash
-docker compose run --rm ingest
+make ingest
+# or: docker compose run --rm ingest
 ```
 
-Fetches events from the GitHub Public Events API, filters to PushEvents, persists them with structured fields and raw payloads, and enriches each event with actor and repository detail data.
+Runs a one-off ingestion: fetches events from the GitHub Public Events API, filters to PushEvents, persists them with structured fields and raw payloads, and enriches each event with actor and repository detail data.
+
+Ingestion also runs continuously via Sidekiq on a scheduled interval when the system is up. Manual runs are useful for immediate ingestion or testing.
 
 ---
 
 ## How to Run Tests
 
 ```bash
-docker compose run --rm test
+make test
+# or: docker compose run --rm test
 ```
 
 Runs the full RSpec suite with documentation formatter. No external network calls — all HTTP is stubbed via WebMock.
@@ -102,11 +123,15 @@ docker compose logs -f
 
 ---
 
-## Postman Collection
+## Frontend
 
-Import `postman/github_ingestor.postman_collection.json` and `postman/github_ingestor.postman_environment.json` into Postman.
+The React frontend is available at `http://localhost:5173` after `docker compose up --build`.
 
-Set the `base_url` environment variable to `http://localhost:3000` (default).
+- Browse push events, actors, and repositories
+- Filter by ref, actor login, or repository name
+- Search across records
+- Click any event to view the full payload
+- Live updates via polling or manual refresh
 
 ---
 
