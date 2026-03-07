@@ -112,14 +112,6 @@ docker compose logs -f
 
 ---
 
-## Postman Collection
-
-Import `postman/github_ingestor.postman_collection.json` and `postman/github_ingestor.postman_environment.json` into Postman.
-
-Set the `base_url` environment variable to `http://localhost:3000` (default).
-
----
-
 ## Rate Limiting
 
 The GitHub unauthenticated API allows 60 requests/hour. The system manages this through:
