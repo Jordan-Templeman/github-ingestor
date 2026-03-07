@@ -4,7 +4,7 @@ module Api
       def index
         repositories = Repository.all
         repositories = repositories.where(name: params.dig(:filter, :name)) if params.dig(:filter, :name).present?
-        repositories = repositories.limit(page_limit).offset(page_offset)
+        repositories = repositories.order(id: :asc).limit(page_limit).offset(page_offset)
 
         render json: ::RepositorySerializer.new(repositories).serializable_hash.to_json, status: :ok
       end

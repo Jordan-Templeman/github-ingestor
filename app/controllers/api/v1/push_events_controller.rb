@@ -4,7 +4,7 @@ module Api
       def index
         events = PushEvent.includes(:actor, :repository)
         events = apply_filters(events)
-        events = events.limit(page_limit).offset(page_offset)
+        events = events.order(id: :asc).limit(page_limit).offset(page_offset)
 
         render json: ::PushEventSerializer.new(events).serializable_hash.to_json, status: :ok
       end

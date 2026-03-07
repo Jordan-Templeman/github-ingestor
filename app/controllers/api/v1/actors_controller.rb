@@ -4,7 +4,7 @@ module Api
       def index
         actors = Actor.all
         actors = actors.where(login: params.dig(:filter, :login)) if params.dig(:filter, :login).present?
-        actors = actors.limit(page_limit).offset(page_offset)
+        actors = actors.order(id: :asc).limit(page_limit).offset(page_offset)
 
         render json: ::ActorSerializer.new(actors).serializable_hash.to_json, status: :ok
       end
