@@ -1,7 +1,9 @@
 class EnrichmentService
   class << self
     def enrich(push_event)
-      safe_enrich_record(push_event.actor, label: "actor login=#{push_event.actor.login}")
+      actor = push_event.actor
+      safe_enrich_record(actor, label: "actor login=#{actor.login}")
+      safe_download_avatar(actor)
       safe_enrich_record(push_event.repository, label: "repository name=#{push_event.repository.name}")
     end
 
@@ -11,6 +13,12 @@ class EnrichmentService
       enrich_record(record, label: label)
     rescue StandardError => e
       Rails.logger.error("[EnrichmentService] Failed to enrich #{label}: #{e.message}")
+    end
+
+    def safe_download_avatar(actor)
+      AvatarDownloadService.download(actor)
+    rescue StandardError => e
+      Rails.logger.error("[EnrichmentService] Failed to download avatar for #{actor.login}: #{e.message}")
     end
 
     def enrich_record(record, label:)

@@ -8,3 +8,7 @@
       cron: '*/15 * * * *'
       class: IngestionJob
       description: 'Fetch and ingest GitHub push events every 15 minutes'
+    avatar_cleanup_job:
+      cron: '0 3 * * *'
+      class: AvatarCleanupJob
+      description: 'Purge avatars older than 7 days (daily at 3 AM)'

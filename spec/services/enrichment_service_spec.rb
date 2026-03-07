@@ -50,6 +50,8 @@ RSpec.describe EnrichmentService do
         body: repo_detail.to_json,
         headers: { 'Content-Type' => 'application/json' }
       )
+
+    allow(AvatarDownloadService).to receive(:download)
   end
 
   describe '.enrich' do
@@ -71,6 +73,26 @@ RSpec.describe EnrichmentService do
         %r{\[EnrichmentService\].*Enriched repository.*octocat/hello-world}
       )
       described_class.enrich(push_event)
+    end
+
+    it 'calls AvatarDownloadService after enriching actor' do
+      allow(AvatarDownloadService).to receive(:download)
+
+      described_class.enrich(push_event)
+
+      expect(AvatarDownloadService).to have_received(:download).with(actor)
+    end
+
+    context 'when avatar download fails, enrichment still succeeds' do
+      before do
+        allow(AvatarDownloadService).to receive(:download).and_raise(StandardError, 'CDN down')
+      end
+
+      it 'does not crash and still enriches the repository' do
+        allow(Rails.logger).to receive(:error)
+        expect { described_class.enrich(push_event) }.not_to raise_error
+        expect(repository.reload.raw_payload).to eq(repo_detail)
+      end
     end
 
     context 'when actor raw_payload is already present' do
