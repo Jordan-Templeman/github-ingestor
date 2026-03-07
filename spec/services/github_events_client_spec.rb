@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe GithubEventsClient do
-  let(:events_url)    { "#{GithubEventsClient::BASE_URL}#{GithubEventsClient::EVENTS_PATH}" }
+  let(:events_url)    { "#{GithubApiConfig::BASE_URL}#{GithubEventsClient::EVENTS_PATH}" }
 
   let(:push_event_id) { '9143965344' }
   let(:actor_login)   { 'octocat' }

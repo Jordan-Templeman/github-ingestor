@@ -1,5 +1,4 @@
 class GithubEventsClient
-  BASE_URL = ENV.fetch('GITHUB_API_URL', 'https://api.github.com')
   EVENTS_PATH = '/events'.freeze
 
   class RateLimitedError < StandardError; end
@@ -7,8 +6,8 @@ class GithubEventsClient
 
   class << self
     def fetch
-      url = "#{BASE_URL}#{EVENTS_PATH}"
-      response = HTTParty.get(url, headers: request_headers)
+      url = "#{GithubApiConfig::BASE_URL}#{EVENTS_PATH}"
+      response = HTTParty.get(url, headers: GithubApiConfig::HEADERS)
 
       handle_rate_limit(response)
       handle_errors(response)
@@ -22,13 +21,6 @@ class GithubEventsClient
     end
 
     private
-
-    def request_headers
-      {
-        'Accept' => 'application/vnd.github+json',
-        'User-Agent' => 'StrongMind-GitHub-Ingestor',
-      }
-    end
 
     def handle_rate_limit(response)
       if response.code == 429
