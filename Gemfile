@@ -20,6 +20,13 @@ gem 'httparty'
 # Use JSON:API serializer
 gem 'jsonapi-serializer'
 
+# Background job processing
+gem 'sidekiq', '~> 7.0'
+gem 'connection_pool', '~> 2.4'
+
+# Recurring job scheduling
+gem 'sidekiq-scheduler', '~> 5.0'
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
