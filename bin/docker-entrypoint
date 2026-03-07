@@ -1,8 +1,13 @@
 #!/bin/bash -e
 
-# If running the rails server then create or migrate existing database
-if [ "${1}" == "./bin/rails" ] && [ "${2}" == "server" ]; then
-  ./bin/rails db:prepare
-fi
+# Ensure gems match the volume-mounted Gemfile.lock
+bundle install --quiet
+
+# Remove stale PID file if it exists
+rm -f /rails/tmp/pids/server.pid
+
+# Prepare the database (create + migrate if needed)
+# Fallback to db:migrate if db:prepare fails (e.g. race with another container)
+./bin/rails db:prepare 2>/dev/null || ./bin/rails db:migrate
 
 exec "${@}"
