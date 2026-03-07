@@ -1,5 +1,5 @@
 module GithubEventParser
-  def self.is_push_event?(event)
+  def self.push_event?(event)
     event['type'] == 'PushEvent'
   end
 
