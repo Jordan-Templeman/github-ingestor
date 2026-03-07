@@ -1,33 +1,17 @@
-# PostgreSQL. Versions 9.3 and up are supported.
-#
-# Install the pg driver:
-#   gem install pg
-# On macOS with Homebrew:
-#   gem install pg -- --with-pg-config=/usr/local/bin/pg_config
-# On Windows:
-#   gem install pg
-#       Choose the win32 build.
-#       Install PostgreSQL and put its /bin directory on your path.
-#
-# Configure Using Gemfile
-#
-
 default: &default
   adapter: postgresql
   encoding: unicode
-  # For details on connection pooling, see Rails configuration guide
-  # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
 
 development:
   <<: *default
   database: github_ingestor_development
-  url: <%= ENV["DATABASE_URL"] %>
+  url: <%= ENV.fetch("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/github_ingestor_development") %>
 
 test:
   <<: *default
   database: github_ingestor_test
-  url: <%= ENV["DATABASE_URL"] %>
+  url: <%= ENV.fetch("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/github_ingestor_test") %>
 
 production:
   <<: *default
