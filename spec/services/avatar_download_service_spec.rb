@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe AvatarDownloadService do
   describe '.download' do
     let(:actor) { create(:actor, avatar_url: 'https://avatars.githubusercontent.com/u/12345?v=4') }
-    let(:image_body) { Rails.root.join('spec/fixtures/files/avatar.png').read(mode: 'rb') }
+    let(:image_body) { Rails.root.join('spec/fixtures/files/avatar.png').binread }
 
     before do
       stub_request(:get, actor.avatar_url)

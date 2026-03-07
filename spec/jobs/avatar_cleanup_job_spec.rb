@@ -12,7 +12,7 @@ RSpec.describe AvatarCleanupJob do
   end
 
   describe '#perform' do
-    let(:image_body) { Rails.root.join('spec/fixtures/files/avatar.png').read(mode: 'rb') }
+    let(:image_body) { Rails.root.join('spec/fixtures/files/avatar.png').binread }
 
     it 'purges avatars older than the retention period' do
       actor = create(:actor)
