@@ -1,11 +1,17 @@
 class EnrichmentService
   class << self
     def enrich(push_event)
-      enrich_record(push_event.actor, label: "actor login=#{push_event.actor.login}")
-      enrich_record(push_event.repository, label: "repository name=#{push_event.repository.name}")
+      safe_enrich_record(push_event.actor, label: "actor login=#{push_event.actor.login}")
+      safe_enrich_record(push_event.repository, label: "repository name=#{push_event.repository.name}")
     end
 
     private
+
+    def safe_enrich_record(record, label:)
+      enrich_record(record, label: label)
+    rescue StandardError => e
+      Rails.logger.error("[EnrichmentService] Failed to enrich #{label}: #{e.message}")
+    end
 
     def enrich_record(record, label:)
       if record.raw_payload.present?
@@ -20,7 +26,14 @@ class EnrichmentService
     end
 
     def fetch_details(url, label)
-      response = HTTParty.get(url, headers: GithubApiConfig::HEADERS)
+      unless GithubApiConfig.allowed_url?(url)
+        Rails.logger.error("[EnrichmentService] Blocked non-GitHub URL for #{label}: #{url}")
+        return nil
+      end
+
+      response = HTTParty.get(url, headers: GithubApiConfig::HEADERS, timeout: GithubApiConfig::TIMEOUT)
+
+      log_rate_limit(response)
 
       unless response.success?
         Rails.logger.error("[EnrichmentService] Failed to enrich #{label}: #{response.code}")
@@ -28,6 +41,18 @@ class EnrichmentService
       end
 
       response
+    end
+
+    def log_rate_limit(response)
+      remaining = response.headers['X-RateLimit-Remaining']
+      return if remaining.nil?
+      return unless remaining.to_i.zero?
+
+      reset_header = response.headers['X-RateLimit-Reset']
+      reset_at = reset_header ? Time.at(reset_header.to_i).utc.iso8601 : 'unknown'
+      Rails.logger.warn(
+        "[EnrichmentService] Rate limit exhausted — resets at #{reset_at}"
+      )
     end
 
     def save_payload(record, payload, label)

@@ -7,7 +7,7 @@ class GithubEventsClient
   class << self
     def fetch
       url = "#{GithubApiConfig::BASE_URL}#{EVENTS_PATH}"
-      response = HTTParty.get(url, headers: GithubApiConfig::HEADERS)
+      response = HTTParty.get(url, headers: GithubApiConfig::HEADERS, timeout: GithubApiConfig::TIMEOUT)
 
       handle_rate_limit(response)
       handle_errors(response)
