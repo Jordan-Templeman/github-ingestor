@@ -21,8 +21,8 @@ gem 'httparty'
 gem 'jsonapi-serializer'
 
 # Background job processing
-gem 'sidekiq', '~> 7.0'
 gem 'connection_pool', '~> 2.4'
+gem 'sidekiq', '~> 7.0'
 
 # Recurring job scheduling
 gem 'sidekiq-scheduler', '~> 5.0'
