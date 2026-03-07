@@ -3,6 +3,7 @@ require 'rails_helper'
 RSpec.describe EnrichmentService do
   let(:actor_url)  { 'https://api.github.com/users/octocat' }
   let(:repo_url)   { 'https://api.github.com/repos/octocat/hello-world' }
+  let(:rate_limit_url) { 'https://api.github.com/rate_limit' }
 
   let(:actor_detail) do
     {
@@ -35,6 +36,13 @@ RSpec.describe EnrichmentService do
   let(:push_event) { create(:push_event, actor: actor, repository: repository) }
 
   before do
+    stub_request(:get, rate_limit_url)
+      .to_return(
+        status: 200,
+        body: '{}',
+        headers: { 'X-RateLimit-Remaining' => '100' }
+      )
+
     stub_request(:get, actor_url)
       .with(headers: GithubApiConfig::HEADERS)
       .to_return(
@@ -76,10 +84,7 @@ RSpec.describe EnrichmentService do
     end
 
     it 'calls AvatarDownloadService after enriching actor' do
-      allow(AvatarDownloadService).to receive(:download)
-
       described_class.enrich(push_event)
-
       expect(AvatarDownloadService).to have_received(:download).with(actor)
     end
 
@@ -95,37 +100,70 @@ RSpec.describe EnrichmentService do
       end
     end
 
-    context 'when actor raw_payload is already present' do
-      let(:actor) { create(:actor, url: actor_url, raw_payload: { 'cached' => true }) }
-
-      it 'skips the actor API call' do
-        described_class.enrich(push_event)
-        expect(a_request(:get, actor_url)).not_to have_been_made
+    context 'when actor has a cached ETag' do
+      let(:actor) do
+        create(:actor, login: 'octocat', url: actor_url, raw_payload: { 'cached' => true }, etag: '"abc123"')
       end
 
-      it 'logs the skip' do
+      before do
+        stub_request(:get, actor_url)
+          .with(headers: GithubApiConfig::HEADERS.merge('If-None-Match' => '"abc123"'))
+          .to_return(status: 304, body: '', headers: {})
+      end
+
+      it 'sends If-None-Match header and skips update on 304' do
+        described_class.enrich(push_event)
+        expect(actor.reload.raw_payload).to eq({ 'cached' => true })
+      end
+
+      it 'logs the ETag skip' do
         expect(Rails.logger).to receive(:info).with(
-          /\[EnrichmentService\].*Skipped actor.*already enriched/
+          /\[EnrichmentService\].*Skipped actor.*not modified/
         )
         allow(Rails.logger).to receive(:info)
         described_class.enrich(push_event)
       end
     end
 
-    context 'when repository raw_payload is already present' do
-      let(:repository) { create(:repository, url: repo_url, raw_payload: { 'cached' => true }) }
-
-      it 'skips the repository API call' do
-        described_class.enrich(push_event)
-        expect(a_request(:get, repo_url)).not_to have_been_made
+    context 'when repository has a cached ETag' do
+      let(:repository) do
+        create(:repository, name: 'octocat/hello-world', url: repo_url,
+                            raw_payload: { 'cached' => true }, etag: '"repo456"')
       end
 
-      it 'logs the skip' do
+      before do
+        stub_request(:get, repo_url)
+          .with(headers: GithubApiConfig::HEADERS.merge('If-None-Match' => '"repo456"'))
+          .to_return(status: 304, body: '', headers: {})
+      end
+
+      it 'sends If-None-Match header and skips update on 304' do
+        described_class.enrich(push_event)
+        expect(repository.reload.raw_payload).to eq({ 'cached' => true })
+      end
+
+      it 'logs the ETag skip' do
         expect(Rails.logger).to receive(:info).with(
-          /\[EnrichmentService\].*Skipped repository.*already enriched/
+          /\[EnrichmentService\].*Skipped repository.*not modified/
         )
         allow(Rails.logger).to receive(:info)
         described_class.enrich(push_event)
+      end
+    end
+
+    context 'when the response includes an ETag header' do
+      before do
+        stub_request(:get, actor_url)
+          .to_return(
+            status: 200,
+            body: actor_detail.to_json,
+            headers: { 'Content-Type' => 'application/json', 'ETag' => '"new-etag"' }
+          )
+      end
+
+      it 'stores the ETag on the record' do
+        described_class.enrich(push_event)
+        expect(actor.reload.etag).to eq('"new-etag"')
       end
     end
 
@@ -205,6 +243,26 @@ RSpec.describe EnrichmentService do
       end
     end
 
+    context 'when rate limit budget is zero from the start' do
+      before do
+        stub_request(:get, rate_limit_url)
+          .to_return(
+            status: 200,
+            body: '{}',
+            headers: { 'X-RateLimit-Remaining' => '0' }
+          )
+      end
+
+      it 'skips all enrichment and logs warnings' do
+        expect(Rails.logger).to receive(:warn).with(
+          /\[EnrichmentService\].*Rate limit budget exhausted.*actor/
+        ).at_least(:once)
+        allow(Rails.logger).to receive(:warn)
+        described_class.enrich(push_event)
+        expect(actor.reload.raw_payload).to be_nil
+      end
+    end
+
     context 'when the repository API call fails' do
       before do
         stub_request(:get, repo_url).to_return(status: 500, body: 'Internal Server Error')
@@ -244,6 +302,22 @@ RSpec.describe EnrichmentService do
         expect { described_class.enrich(push_event) }.not_to raise_error
         expect(repository.reload.raw_payload).to eq(repo_detail)
       end
+    end
+  end
+
+  describe '.enrich_batch' do
+    it 'deduplicates actors across multiple push events' do
+      second_event = create(:push_event, actor: actor, repository: create(:repository, url: 'https://api.github.com/repos/other/repo'))
+
+      stub_request(:get, 'https://api.github.com/repos/other/repo')
+        .to_return(status: 200, body: repo_detail.to_json, headers: { 'Content-Type' => 'application/json' })
+
+      described_class.enrich_batch([push_event, second_event])
+      expect(a_request(:get, actor_url)).to have_been_made.once
+    end
+
+    it 'handles empty array without error' do
+      expect { described_class.enrich_batch([]) }.not_to raise_error
     end
   end
 end
