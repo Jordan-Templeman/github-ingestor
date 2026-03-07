@@ -5,9 +5,8 @@ require 'rspec/rails'
 
 # Checks for pending migrations and applies them before tests are run.
 begin
- ActiveRecord::Migration.maintain_test_schema!
-rescue ActiveRecord::PendingMigrationError => e
-  puts e.to_s.strip
+  ActiveRecord::Migration.maintain_test_schema!
+rescue ActiveRecord::PendingMigrationError
   exit 1
 end
 
