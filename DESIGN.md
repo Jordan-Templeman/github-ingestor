@@ -146,8 +146,5 @@ Malformed or unexpected payloads are rescued per-event: the error is logged with
 
 ## What Was Intentionally Not Built
 
-- **Continuous polling** — ingestion is operator-triggered; a scheduler is out of scope
 - **User authentication** — internal service, no auth layer needed
-- **Object storage** (Extension C) — raw payloads are stored in PostgreSQL jsonb columns; avatars are downloaded to local storage
-- **Advanced analytics / reporting** — the JSON:API layer supports basic querying; the React dashboard provides browsing and filtering
 - **Storybook / RTL specs / i18n** — typically included in production React apps but omitted for scope
