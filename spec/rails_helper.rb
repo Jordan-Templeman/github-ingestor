@@ -2,6 +2,9 @@ require 'spec_helper'
 ENV['RAILS_ENV'] ||= 'test'
 require_relative '../config/environment'
 require 'rspec/rails'
+require 'webmock/rspec'
+
+WebMock.disable_net_connect!
 
 # Checks for pending migrations and applies them before tests are run.
 begin
