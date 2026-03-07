@@ -37,4 +37,14 @@ RSpec.describe IngestionJob do
       end
     end
   end
+
+  describe '.sidekiq_retries_exhausted' do
+    it 'logs when all retries are exhausted' do
+      msg = { 'retry_count' => 3, 'error_message' => 'connection refused' }
+      expect(Rails.logger).to receive(:error).with(
+        /\[IngestionJob\].*Retries exhausted after 3 attempts.*connection refused/
+      )
+      described_class.sidekiq_retries_exhausted_block.call(msg, StandardError.new('connection refused'))
+    end
+  end
 end
