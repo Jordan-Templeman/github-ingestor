@@ -127,6 +127,62 @@ RSpec.describe EnrichmentService do
       end
     end
 
+    context 'when the actor API call raises a network error' do
+      before do
+        stub_request(:get, actor_url).to_raise(SocketError.new('getaddrinfo: Name or service not known'))
+      end
+
+      it 'does not crash and still enriches the repository' do
+        allow(Rails.logger).to receive(:error)
+        expect { described_class.enrich(push_event) }.not_to raise_error
+        expect(repository.reload.raw_payload).to eq(repo_detail)
+      end
+    end
+
+    context 'when an actor URL is not a GitHub API URL' do
+      let(:actor) do
+        create(:actor, login: 'octocat', url: 'http://evil.example.com/ssrf', raw_payload: nil)
+      end
+
+      it 'blocks the request and logs the rejection' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[EnrichmentService\].*Blocked non-GitHub URL/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.enrich(push_event)
+        expect(actor.reload.raw_payload).to be_nil
+      end
+    end
+
+    context 'when rate limit is exhausted' do
+      before do
+        stub_request(:get, actor_url)
+          .to_return(
+            status: 200,
+            body: actor_detail.to_json,
+            headers: {
+              'Content-Type' => 'application/json',
+              'X-RateLimit-Remaining' => '0',
+              'X-RateLimit-Reset' => '1741400000',
+            }
+          )
+      end
+
+      it 'logs a rate limit warning' do
+        expect(Rails.logger).to receive(:warn).with(
+          /\[EnrichmentService\].*Rate limit exhausted/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.enrich(push_event)
+      end
+
+      it 'still stores the response payload' do
+        allow(Rails.logger).to receive(:warn)
+        described_class.enrich(push_event)
+        expect(actor.reload.raw_payload).to eq(actor_detail)
+      end
+    end
+
     context 'when the repository API call fails' do
       before do
         stub_request(:get, repo_url).to_return(status: 500, body: 'Internal Server Error')
@@ -144,6 +200,27 @@ RSpec.describe EnrichmentService do
         allow(Rails.logger).to receive(:error)
         described_class.enrich(push_event)
         expect(actor.reload.raw_payload).to eq(actor_detail)
+      end
+    end
+
+    context 'when saving the payload fails' do
+      before do
+        errors = double(full_messages: ['Raw payload is invalid'])
+        allow(actor).to receive_messages(update: false, errors: errors)
+      end
+
+      it 'logs the save failure' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[EnrichmentService\].*Failed to save actor.*Raw payload is invalid/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.enrich(push_event)
+      end
+
+      it 'does not crash and still enriches the repository' do
+        allow(Rails.logger).to receive(:error)
+        expect { described_class.enrich(push_event) }.not_to raise_error
+        expect(repository.reload.raw_payload).to eq(repo_detail)
       end
     end
   end
