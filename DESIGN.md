@@ -46,6 +46,7 @@ StrongMind needs visibility into GitHub activity to analyze repository usage and
 - **Rails 7.1 API-only app** — orchestrates ingestion, enrichment, and serves a JSON:API query layer
 - **React + TypeScript frontend** — RTK Query dashboard with MUI, filtering by actor/repository, pagination
 - **PostgreSQL** — system of record for raw and structured event data
+- **Redis + Sidekiq** — background job processing for continuous ingestion
 - **GithubEventsClient** — handles all GitHub API requests, reads rate limit headers, raises on exhaustion
 - **IngestionService** — fetch → filter → persist → batch enrich pipeline, runs on-demand via `docker compose run --rm ingest`
 - **EnrichmentService** — batch enrichment after ingestion; deduplicates actors/repos, uses ETag conditional requests, tracks rate limit budget before making calls
@@ -103,7 +104,7 @@ Raw payloads are stored on all three tables for audit and debug purposes. Struct
 - **Rate limit budget tracking**: Before making enrichment calls, the service checks GitHub's `/rate_limit` endpoint to know how many requests remain. If the budget is exhausted, enrichment is skipped with a warning — the core ingestion pipeline is never blocked.
 - **SSRF hardening**: All enrichment URLs are validated against the configured GitHub API host using `URI.parse` host comparison (not string prefix matching). URLs pointing to non-GitHub hosts are blocked and logged.
 - **No authentication token**: Per requirements. The system stays within the 60 req/hour limit through ETag caching, batch deduplication, and budget-aware enrichment.
-- **On-demand ingestion**: `IngestionService.run` is invoked explicitly. Continuous polling is not implemented — the operator decides when to ingest.
+- **Dual ingestion modes**: `IngestionService.run` can be invoked on-demand via `docker compose run --rm ingest`, or continuously via Sidekiq background jobs that poll on a recurring schedule.
 - **Frontend trade-offs**: The React dashboard uses MUI components directly rather than styled-components, and does not include Storybook, React Testing Library specs, or i18n translations. These are standard in production React apps but were omitted to keep scope focused on the backend pipeline demonstration.
 
 ---

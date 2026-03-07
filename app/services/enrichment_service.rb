@@ -25,7 +25,7 @@ class EnrichmentService
       remaining = response.headers['X-RateLimit-Remaining']
       remaining&.to_i
     rescue StandardError => e
-      Rails.logger.warn("[EnrichmentService] Could not fetch rate limit budget: #{e.message}")
+      Rails.logger.warn("[EnrichmentService] Failed to fetch rate limit budget: #{e.message}")
       nil
     end
 

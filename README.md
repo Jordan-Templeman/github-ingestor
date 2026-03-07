@@ -24,7 +24,8 @@ docker compose up --build
 This starts:
 - Rails API on `http://localhost:3000`
 - React dashboard on `http://localhost:5173`
-- PostgreSQL database
+- Sidekiq worker for continuous background ingestion
+- PostgreSQL database and Redis
 
 The database is created and migrated automatically on boot.
 

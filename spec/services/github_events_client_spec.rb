@@ -191,6 +191,29 @@ RSpec.describe GithubEventsClient do
       end
     end
 
+    context 'when the API returns a non-Array response body' do
+      before do
+        stub_request(:get, events_url)
+          .to_return(
+            status: 200,
+            body: { 'message' => 'Not an array' }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'returns an empty array' do
+        expect(described_class.fetch).to eq([])
+      end
+
+      it 'logs the unexpected response type' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[GithubEventsClient\].*Expected Array.*got Hash/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.fetch
+      end
+    end
+
     context 'when the API returns a non-200/429 error' do
       let(:error_status) { 502 }
 
