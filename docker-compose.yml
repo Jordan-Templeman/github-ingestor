@@ -15,8 +15,19 @@ services:
       timeout: 10s
       retries: 3
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   app:
     build: .
+    user: root
     command: bundle exec rails server -b 0.0.0.0 -p 3000
     volumes:
       - .:/rails
@@ -26,19 +37,43 @@ services:
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_ingestor_development
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  ingest:
+  sidekiq:
     build: .
-    command: bundle exec rails runner "IngestionService.run"
+    user: root
+    command: bundle exec sidekiq
     volumes:
       - .:/rails
       - bundle_cache:/usr/local/bundle
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_ingestor_development
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ingest:
+    build: .
+    user: root
+    command: bundle exec rails runner "IngestionService.run"
+    profiles:
+      - tools
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+    environment:
+      RAILS_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/github_ingestor_development
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -48,14 +83,19 @@ services:
       context: .
       target: build
     command: bash -c "bundle config set --local without '' && bundle install && bundle exec rails db:create db:migrate && bundle exec rspec --format documentation"
+    profiles:
+      - tools
     volumes:
       - .:/rails
       - bundle_cache:/usr/local/bundle
     environment:
       RAILS_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_ingestor_test
+      REDIS_URL: redis://redis:6379/1
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

@@ -1,0 +1,10 @@
+:concurrency: 2
+:queues:
+  - default
+
+:scheduler:
+  :schedule:
+    ingestion_job:
+      cron: '*/15 * * * *'
+      class: IngestionJob
+      description: 'Fetch and ingest GitHub push events every 15 minutes'
