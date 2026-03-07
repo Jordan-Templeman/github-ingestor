@@ -6,14 +6,14 @@ module Api
         events = apply_filters(events)
         events = events.order(id: :asc).limit(page_limit).offset(page_offset)
 
-        render json: ::PushEventSerializer.new(events).serializable_hash.to_json, status: :ok
+        render json: ::PushEventSerializer.new(events).serializable_hash, status: :ok
       end
 
       def show
         event = PushEvent.includes(:actor, :repository).find_by(id: params[:id])
         return render_not_found('PushEvent') unless event
 
-        render json: ::PushEventSerializer.new(event).serializable_hash.to_json, status: :ok
+        render json: ::PushEventSerializer.new(event).serializable_hash, status: :ok
       end
 
       private

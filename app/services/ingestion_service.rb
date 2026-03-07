@@ -3,59 +3,59 @@ class IngestionService
     def run
       events = GithubEventsClient.fetch
       push_events = events.select { |e| GithubEventParser.push_event?(e) }
-      persisted, skipped, errored = ingest_push_events(push_events)
-      log_summary(events.size, push_events.size, persisted, skipped, errored)
+      persisted_events, skipped, errored = ingest_push_events(push_events)
+      safe_enrich_batch(persisted_events)
+      log_summary(events.size, push_events.size, persisted_events.size, skipped, errored)
     end
 
     private
 
-    # Processes events individually so one malformed or invalid event
-    # does not block the rest of the batch. Trade-off: individual
-    # writes per event rather than a batch upsert. Validations still
-    # run on every record. Acceptable at GitHub's public API scale
-    # (30 events/page) but would benefit from bulk inserts if volume
-    # grows significantly.
     def ingest_push_events(push_events)
-      counts = { persisted: 0, skipped: 0, errored: 0 }
+      persisted_events = []
+      counts = { skipped: 0, errored: 0 }
 
       push_events.each do |event|
-        ingest_one(event, counts)
+        result = ingest_one(event, counts)
+        persisted_events << result if result
       end
 
-      counts.values_at(:persisted, :skipped, :errored)
+      [persisted_events, counts[:skipped], counts[:errored]]
     end
 
     def ingest_one(event, counts)
       if PushEvent.exists?(github_id: event['id'])
         counts[:skipped] += 1
-        return
+        return nil
       end
 
-      actor = find_or_create_actor(event)
-      repository = find_or_create_repository(event)
-      push_event = persist_push_event(event, actor, repository)
+      push_event = create_push_event(event)
       record_result(push_event, event, counts)
-      safe_enrich(push_event) if push_event.persisted?
     rescue StandardError => e
       counts[:errored] += 1
       log_error(event, e.message)
+      nil
+    end
+
+    def create_push_event(event)
+      actor = find_or_create_actor(event)
+      repository = find_or_create_repository(event)
+      persist_push_event(event, actor, repository)
     end
 
     def record_result(push_event, event, counts)
       if push_event.persisted?
-        counts[:persisted] += 1
+        push_event
       else
         counts[:errored] += 1
         log_error(event, push_event.errors.full_messages.join(', '))
+        nil
       end
     end
 
-    def safe_enrich(push_event)
-      EnrichmentService.enrich(push_event)
+    def safe_enrich_batch(push_events)
+      EnrichmentService.enrich_batch(push_events)
     rescue StandardError => e
-      Rails.logger.error(
-        "[IngestionService] Enrichment failed for event id=#{push_event.github_id}: #{e.message}"
-      )
+      Rails.logger.error("[IngestionService] Batch enrichment failed: #{e.message}")
     end
 
     def log_error(event, message)
