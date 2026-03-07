@@ -67,6 +67,7 @@ RSpec.describe IngestionService do
 
   before do
     allow(GithubEventsClient).to receive(:fetch).and_return(events)
+    allow(EnrichmentService).to receive(:enrich)
   end
 
   describe '.run' do
@@ -78,6 +79,29 @@ RSpec.describe IngestionService do
     it 'filters to only PushEvents' do
       described_class.run
       expect(PushEvent.count).to eq(1)
+    end
+
+    it 'calls EnrichmentService for persisted push events' do
+      described_class.run
+      expect(EnrichmentService).to have_received(:enrich).once
+    end
+
+    context 'when EnrichmentService raises an error' do
+      before do
+        allow(EnrichmentService).to receive(:enrich).and_raise(StandardError, 'enrichment boom')
+      end
+
+      it 'still counts the event as persisted' do
+        expect { described_class.run }.to change(PushEvent, :count).by(1)
+      end
+
+      it 'logs the enrichment failure' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[IngestionService\].*Enrichment failed/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.run
+      end
     end
 
     it 'creates an Actor record from the event' do

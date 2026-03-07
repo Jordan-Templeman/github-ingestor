@@ -35,6 +35,7 @@ class IngestionService
       repository = find_or_create_repository(event)
       push_event = persist_push_event(event, actor, repository)
       record_result(push_event, event, counts)
+      safe_enrich(push_event) if push_event.persisted?
     rescue StandardError => e
       counts[:errored] += 1
       log_error(event, e.message)
@@ -47,6 +48,14 @@ class IngestionService
         counts[:errored] += 1
         log_error(event, push_event.errors.full_messages.join(', '))
       end
+    end
+
+    def safe_enrich(push_event)
+      EnrichmentService.enrich(push_event)
+    rescue StandardError => e
+      Rails.logger.error(
+        "[IngestionService] Enrichment failed for event id=#{push_event.github_id}: #{e.message}"
+      )
     end
 
     def log_error(event, message)
