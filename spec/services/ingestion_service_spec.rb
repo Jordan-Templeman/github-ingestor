@@ -67,6 +67,7 @@ RSpec.describe IngestionService do
 
   before do
     allow(GithubEventsClient).to receive(:fetch).and_return(events)
+    allow(EnrichmentService).to receive(:enrich)
   end
 
   describe '.run' do
@@ -78,6 +79,29 @@ RSpec.describe IngestionService do
     it 'filters to only PushEvents' do
       described_class.run
       expect(PushEvent.count).to eq(1)
+    end
+
+    it 'calls EnrichmentService for persisted push events' do
+      described_class.run
+      expect(EnrichmentService).to have_received(:enrich).once
+    end
+
+    context 'when EnrichmentService raises an error' do
+      before do
+        allow(EnrichmentService).to receive(:enrich).and_raise(StandardError, 'enrichment boom')
+      end
+
+      it 'still counts the event as persisted' do
+        expect { described_class.run }.to change(PushEvent, :count).by(1)
+      end
+
+      it 'logs the enrichment failure' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[IngestionService\].*Enrichment failed/
+        )
+        allow(Rails.logger).to receive(:info)
+        described_class.run
+      end
     end
 
     it 'creates an Actor record from the event' do
@@ -162,7 +186,7 @@ RSpec.describe IngestionService do
 
     it 'logs the ingestion summary' do
       expect(Rails.logger).to receive(:info).with(
-        /\[IngestionService\].*fetched=2.*push_events=1.*persisted=1.*skipped=0/
+        /\[IngestionService\].*fetched=2.*push_events=1.*persisted=1.*skipped=0.*errored=0/
       )
       described_class.run
     end
@@ -178,6 +202,32 @@ RSpec.describe IngestionService do
         expect(Rails.logger).to receive(:info).with(
           /\[IngestionService\].*push_events=0.*persisted=0/
         )
+        described_class.run
+      end
+    end
+
+    context 'when an individual event has malformed data' do
+      let(:bad_event) do
+        {
+          'id' => '9143965999',
+          'type' => 'PushEvent',
+          'actor' => nil,
+          'repo' => { 'id' => repo_id, 'name' => repo_name },
+          'payload' => { 'ref' => 'refs/heads/main', 'head' => 'abc', 'before' => 'def' },
+        }
+      end
+
+      let(:events) { [bad_event, push_event_payload] }
+
+      it 'skips the bad event and persists the good one' do
+        expect { described_class.run }.to change(PushEvent, :count).by(1)
+      end
+
+      it 'logs the error for the bad event' do
+        expect(Rails.logger).to receive(:error).with(
+          /\[IngestionService\].*Failed to ingest event id=9143965999/
+        )
+        allow(Rails.logger).to receive(:info)
         described_class.run
       end
     end
