@@ -17,7 +17,13 @@ class GithubEventsClient
         "rate_limit_remaining=#{response.headers['X-RateLimit-Remaining']}"
       )
 
-      response.parsed_response
+      body = response.parsed_response
+      unless body.is_a?(Array)
+        Rails.logger.error("[GithubEventsClient] Expected Array response, got #{body.class}")
+        return []
+      end
+
+      body
     end
 
     private

@@ -1,3 +1,5 @@
+require 'uri'
+
 module GithubApiConfig
   HEADERS = {
     'Accept' => 'application/vnd.github+json',
@@ -8,7 +10,12 @@ module GithubApiConfig
 
   TIMEOUT = 10
 
+  ALLOWED_HOST = URI.parse(BASE_URL).host.freeze
+
   def self.allowed_url?(url)
-    url.to_s.start_with?("#{BASE_URL}/")
+    uri = URI.parse(url.to_s)
+    uri.scheme == 'https' && uri.host == ALLOWED_HOST && uri.path.present?
+  rescue URI::InvalidURIError
+    false
   end
 end
