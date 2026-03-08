@@ -27,7 +27,7 @@ Each phase was scoped as a standalone deliverable with its own PR, tests, and re
 | 7 — JSON:API Layer | [#8](https://github.com/Jordan-Templeman/github-ingestor/pull/8) | REST endpoints with jsonapi-serializer, pagination, filtering |
 | Extension C — Avatars | [#9](https://github.com/Jordan-Templeman/github-ingestor/pull/9) | AvatarDownloadService, local file storage, download after enrichment |
 | 8 — React Dashboard | [#10](https://github.com/Jordan-Templeman/github-ingestor/pull/10) | RTK Query + MUI frontend with filtering, pagination, actor avatars |
-| 10 — Cleanup & Optimization | *(this branch)* | ETag caching, batch dedup, rate limit budgeting, SSRF hardening, dead code removal |
+| 10 — Cleanup & Optimization | [#11](https://github.com/Jordan-Templeman/github-ingestor/pull/11) | ETag caching, batch dedup, rate limit budgeting, SSRF hardening, dead code removal |
 
 **Why this order?** Data model first — everything else writes to and reads from the database. Client before service — the ingestion service depends on the HTTP client. Ingestion before enrichment — persist first, enrich second, so the core pipeline works even if enrichment has issues. API layer after data exists — serializers and controllers have real data shapes to work against. Frontend last — it reads from a stable API.
 
