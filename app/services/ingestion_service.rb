@@ -14,21 +14,26 @@ class IngestionService
       persisted_events = []
       counts = { skipped: 0, errored: 0 }
 
+      # Batch-preload to eliminate N+1 queries
+      existing_ids = PushEvent.where(github_id: push_events.map { |e| e['id'] }).pluck(:github_id).to_set
+      actors_cache = Actor.where(github_id: push_events.map { |e| e.dig('actor', 'id') }.compact.uniq).index_by(&:github_id)
+      repos_cache = Repository.where(github_id: push_events.map { |e| e.dig('repo', 'id') }.compact.uniq).index_by(&:github_id)
+
       push_events.each do |event|
-        result = ingest_one(event, counts)
+        result = ingest_one(event, counts, existing_ids, actors_cache, repos_cache)
         persisted_events << result if result
       end
 
       [persisted_events, counts[:skipped], counts[:errored]]
     end
 
-    def ingest_one(event, counts)
-      if PushEvent.exists?(github_id: event['id'])
+    def ingest_one(event, counts, existing_ids, actors_cache, repos_cache)
+      if existing_ids.include?(event['id'])
         counts[:skipped] += 1
         return nil
       end
 
-      push_event = create_push_event(event)
+      push_event = create_push_event(event, actors_cache, repos_cache)
       record_result(push_event, event, counts)
     rescue StandardError => e
       counts[:errored] += 1
@@ -36,9 +41,9 @@ class IngestionService
       nil
     end
 
-    def create_push_event(event)
-      actor = find_or_create_actor(event)
-      repository = find_or_create_repository(event)
+    def create_push_event(event, actors_cache, repos_cache)
+      actor = find_or_create_actor(event, actors_cache)
+      repository = find_or_create_repository(event, repos_cache)
       persist_push_event(event, actor, repository)
     end
 
@@ -71,9 +76,11 @@ class IngestionService
       )
     end
 
-    def find_or_create_actor(event)
+    def find_or_create_actor(event, actors_cache)
       actor_data = event['actor']
-      Actor.find_or_create_by(github_id: actor_data['id']) do |actor|
+      github_id = actor_data['id']
+
+      actors_cache[github_id] ||= Actor.find_or_create_by(github_id: github_id) do |actor|
         actor.login         = actor_data['login']
         actor.display_login = actor_data['display_login']
         actor.avatar_url    = actor_data['avatar_url']
@@ -81,9 +88,11 @@ class IngestionService
       end
     end
 
-    def find_or_create_repository(event)
+    def find_or_create_repository(event, repos_cache)
       repo_data = event['repo']
-      Repository.find_or_create_by(github_id: repo_data['id']) do |repo|
+      github_id = repo_data['id']
+
+      repos_cache[github_id] ||= Repository.find_or_create_by(github_id: github_id) do |repo|
         repo.name = repo_data['name']
         repo.url  = repo_data['url']
       end
