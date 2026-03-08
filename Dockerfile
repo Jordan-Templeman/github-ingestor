@@ -36,6 +36,9 @@ RUN groupadd --system rails && useradd --system -g rails rails
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
+# Ensure bin/ scripts are executable (git may not preserve permissions)
+RUN chmod +x /rails/bin/*
+
 # Ensure the rails user owns the app and bundle directories
 RUN chown -R rails:rails /rails /usr/local/bundle
 
